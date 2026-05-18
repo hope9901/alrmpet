@@ -149,12 +149,17 @@ def _apply_overrides(config, opts):
         config.notification.pet.character = opts["character"]
 
 
-def _run_with_pet(monitor_fn, config, pid_for_stats=None):
-    """Core orchestration: pet animation -> monitor -> notify."""
+def _run_with_pet(monitor_fn, config, pid_for_stats=None, animate=True):
+    """Core orchestration: monitor -> notify.
+
+    animate=True:  show pet animation during execution (for watch modes)
+    animate=False: no animation during execution, banner after (for run mode)
+    """
     pet_cfg = config.notification.pet
     pet = None
 
-    if pet_cfg.enabled:
+    # Only animate during execution for watch modes (no command output to clash)
+    if pet_cfg.enabled and animate:
         pet = TerminalPet(character=pet_cfg.character, show_stats=pet_cfg.show_stats)
         pet.start()
 
@@ -182,7 +187,8 @@ def _run_with_pet(monitor_fn, config, pid_for_stats=None):
     success = result.exit_code == 0
     if pet:
         pet.stop(success=success)
-    else:
+    elif pet_cfg.enabled:
+        # Run mode: show completion banner after command finishes
         show_completion_banner(
             success=success, command=result.command,
             duration=result.duration, exit_code=result.exit_code,
@@ -266,7 +272,7 @@ def _handle_run(opts, command):
     cmd_str = " ".join(command)
     print(f"[alrmpet] Running: {cmd_str}", file=sys.stderr)
 
-    result = _run_with_pet(lambda: run_passthrough(command), config)
+    result = _run_with_pet(lambda: run_passthrough(command), config, animate=False)
     sys.exit(result.exit_code)
 
 
