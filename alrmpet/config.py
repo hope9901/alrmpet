@@ -3,7 +3,7 @@
 import yaml
 from pathlib import Path
 from dataclasses import dataclass, field
-from typing import Optional, List
+from typing import Optional, List, Dict
 
 CONFIG_SEARCH_PATHS = [
     Path.home() / ".config" / "alrmpet" / "config.yaml",
@@ -21,7 +21,8 @@ class EmailConfig:
     username: str = ""
     password: str = ""
     from_addr: str = ""
-    to_addrs: List[str] = field(default_factory=list)
+    recipients: Dict[str, str] = field(default_factory=dict)  # initials -> email
+    to_addrs: List[str] = field(default_factory=list)  # resolved at runtime by --to
 
 
 @dataclass
@@ -109,15 +110,20 @@ CONFIG_TEMPLATE = """\
 # alrmpet configuration
 notification:
   email:
-    enabled: false
+    enabled: true
     smtp_server: "smtp.gmail.com"
     smtp_port: 587
     use_tls: true
     username: "your-email@gmail.com"
     password: "your-app-password"
     from_addr: "your-email@gmail.com"
-    to_addrs:
-      - "recipient@example.com"
+    # Recipients: initials -> email address
+    # Use --to to select: alrmpet --to hyg,kjw python train.py
+    # Use --to all to send to everyone
+    recipients:
+      hyg: "hyg@gmail.com"
+      kjw: "kjw@example.com"
+      lsh: "lsh@example.com"
 
   webhook:
     enabled: false

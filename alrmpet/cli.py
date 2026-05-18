@@ -28,7 +28,7 @@ FLAGS_NO_ARG = {
     "-V", "--version", "-h", "--help",
 }
 FLAGS_WITH_ARG = {
-    "--character", "-c", "--config",
+    "--character", "-c", "--config", "--to",
     "--watch-pid", "--watch-screen", "--listen",
 }
 
@@ -43,6 +43,7 @@ def _parse_argv(argv: list) -> tuple:
     opts = {
         "config": None,
         "character": None,
+        "to": None,
         "no_pet": False,
         "no_email": False,
         "no_desktop": False,
@@ -103,6 +104,7 @@ Usage:
   alrmpet --test                        Test notifications
 
 Options:
+  --to NAMES          Email recipients (initials, comma-separated, or 'all')
   --character NAME    Pet: codex, dewey, fireball, rocky, seedy
   --no-pet            Disable pet animation
   --no-email          Disable email
@@ -115,15 +117,22 @@ Options:
   -V, --version       Show version
   -h, --help          Show this help
 
+Email recipients:
+  Config recipients:  {{hyg: "h@gmail.com", kjw: "k@univ.kr"}}
+  --to hyg            Send to hyg only
+  --to hyg,kjw        Send to hyg and kjw
+  --to all            Send to all recipients
+  (no --to)           No email sent
+
 Remote notification:
   Sender:   set remote.host/port in config.yaml
   Receiver: alrmpet --listen 9922
   ntfy.sh:  set ntfy.topic in config.yaml, install ntfy app on phone
 
 Examples:
-  alrmpet sleep 10
-  alrmpet python train.py --epochs 100
-  alrmpet --character fireball -- bash long_job.sh
+  alrmpet --to hyg sleep 10
+  alrmpet --to all python train.py --epochs 100
+  alrmpet --to hyg,kjw --character fireball -- bash long_job.sh
   alrmpet --watch-pid 12345
   alrmpet --listen 9922
 """
@@ -147,6 +156,27 @@ def _apply_overrides(config, opts):
         config.notification.pet.enabled = False
     if opts["character"]:
         config.notification.pet.character = opts["character"]
+
+    # Resolve --to: initials -> email addresses
+    ec = config.notification.email
+    if opts["to"]:
+        if opts["to"] == "all":
+            ec.to_addrs = list(ec.recipients.values())
+        else:
+            names = [n.strip() for n in opts["to"].split(",")]
+            resolved = []
+            for name in names:
+                if name in ec.recipients:
+                    resolved.append(ec.recipients[name])
+                else:
+                    print(f"[alrmpet] Warning: unknown recipient '{name}'")
+                    print(f"[alrmpet] Available: {', '.join(ec.recipients.keys())}")
+            ec.to_addrs = resolved
+        if not ec.to_addrs:
+            ec.enabled = False
+    else:
+        # No --to specified: disable email
+        ec.enabled = False
 
 
 def _run_with_pet(monitor_fn, config, pid_for_stats=None, animate=True):
